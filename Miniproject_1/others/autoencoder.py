@@ -15,14 +15,17 @@ a leaky relu or linear activation layer, and a 2x2 maxpool layer
 class EncodingBlock(nn.Module):
     
     def __init__(self, n_in, n_out):
-        super.__init__()
+        super().__init__()
         
-        self.conv = nn.Conv2d(n_in, n_out, kernel_size = 3, padding_mode = 'zeros')
+        self.conv = nn.Conv2d(n_in, n_out, kernel_size = 3, padding = 'same', padding_mode = 'zeros')
         self.pool = nn.MaxPool2d(kernel_size = 2)
         self.activation = nn.LeakyReLU(0.1)
     
     def forward(self,x):
+        print(x.size())
         x = self.conv(x)
+        print(x.size())
+        print("----------------------------------------------------")
         x = self.activation(x)
         x = self.pool(x)
         
@@ -32,13 +35,13 @@ class EncodingBlock(nn.Module):
 Describes an "decoding block" in the autoencoder; it's composed of a 3x3 convolutional layer, followed by either
 a leaky relu or linear activation layer, and a 2x2 upsample layer
 """
-def DecodingBlock(nn.Module):
+class DecodingBlock(nn.Module):
     
     def __init__(self, n_in, n_out):
-        super.__init__()
+        super().__init__()
         
-        self.conv = nn.Conv2d(n_in, n_out, kernel_size = 3, padding_mode = 'zeros') 
-        self.up = nn.Upsample(size = None, scale_factor = None, mode = 'nearest')
+        self.conv = nn.Conv2d(n_in, n_out, kernel_size = 3, padding = 'same', padding_mode = 'zeros') 
+        self.up = nn.Upsample(scale_factor = 2,mode = 'nearest')
         self.activation = nn.LeakyReLU(0.1)
     
     def forward(self, x):
@@ -50,10 +53,10 @@ def DecodingBlock(nn.Module):
 """
 Implements the autoencoder
 """
-def Noise2Noise(nn.Module):
+class Noise2Noise(nn.Module):
     
     def __init__(self, n = 3, m = 3):    
-        
+        super().__init__()
         #### ENCODING BLOCKS
         self.encoding1 = EncodingBlock(48, 48)
         self.encoding2 = EncodingBlock(48, 48)
@@ -69,16 +72,15 @@ def Noise2Noise(nn.Module):
         self.decoding5 = DecodingBlock(96,96)
         
         #### Last layers
-        self.conv1 = nn.Conv2d(96 + n, 64, kernel_size = 3, padding_mode = 'zeros')
-        self.conv2 = nn.Conv2d(64, 32, kernel_size = 3, padding_mode = 'zeros')
-        self.conv3 = nn.Conv2d(32, m, kernel_size = 3, padding_mode = 'zeros')
+        self.conv1 = nn.Conv2d(96 + n, 64, kernel_size = 3, padding = 'same', padding_mode = 'zeros')
+        self.conv2 = nn.Conv2d(64, 32, kernel_size = 3, padding = 'same', padding_mode = 'zeros')
+        self.conv3 = nn.Conv2d(32, m, kernel_size = 3, padding = 'same', padding_mode = 'zeros')
         
     def forward(self, x):
         input_ = x.detach().clone()
         n = m = 3
-        x = nn.Conv2d(n, 48, kernel_size = 3, padding_mode = 'zeros')(x) #enc_conv0
+        x = nn.Conv2d(n, 48, kernel_size = 3, padding = 'same', padding_mode = 'zeros')(x) #enc_conv0
         x = nn.LeakyReLU(0.1)(x)
-        
         #### ENCODING PHASE
         pool1 = self.encoding1(x) #pool1
         pool2 = self.encoding2(pool1) #pool2
@@ -89,28 +91,28 @@ def Noise2Noise(nn.Module):
         
         #### DECODING PHASE
         upsample5 = self.decoding1(pool5)
-        concat5 = None
-        dec_conv5a = nn.Conv2d(96, 96, kernel_size = 3, padding_mode = 'zeros')(concat5)
+        concat5 = torch.cat([upsample5,pool4], dim = 1)
+        dec_conv5a = nn.Conv2d(96, 96, kernel_size = 3, padding = 'same', padding_mode = 'zeros')(concat5)
         dec_conv5a = nn.LeakyReLU(0.1)(dec_conv5a)
         
         upsample4 = self.decoding2(dec_conv5a)
-        concat4 = None
-        dec_conv4a = nn.Conv2d(144, 96, kernel_size = 3, padding_mode = 'zeros')(concat4)
+        concat4 = torch.cat([upsample4,pool3], dim = 1)
+        dec_conv4a = nn.Conv2d(144, 96, kernel_size = 3, padding = 'same', padding_mode = 'zeros')(concat4)
         dec_conv4a = nn.LeakyReLU(0.1)(dec_conv4a)
         
         upsample3 = self.decoding2(dec_conv4a)
-        concat3 = None
-        dec_conv3a = nn.Conv2d(144, 96, kernel_size = 3, padding_mode = 'zeros')(concat3)
+        concat3 = torch.cat([upsample3,pool2], dim = 1)
+        dec_conv3a = nn.Conv2d(144, 96, kernel_size = 3, padding = 'same')(concat3)
         dec_conv3a = nn.LeakyReLU(0.1)(dec_conv3a)
         
         upsample2 = self.decoding2(dec_conv3a)
-        concat2 = None
-        dec_conv2a = nn.Conv2d(144, 96, kernel_size = 3, padding_mode = 'zeros')(concat2)
+        concat2 = torch.cat([upsample2,pool1], dim = 1)
+        dec_conv2a = nn.Conv2d(144, 96, kernel_size = 3, padding = 'same')(concat2)
         dec_conv2a = nn.LeakyReLU(0.1)(dec_conv2a)
         
         
         upsample1 = self.decoding2(dec_conv2a)
-        concat1 = None
+        concat1 = torch.cat([upsample1,input_], dim = 1)
         
         
         #### Last phase
