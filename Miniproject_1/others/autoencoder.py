@@ -25,6 +25,7 @@ class EncodingBlock(nn.Module):
         x = self.conv(x)
         x = self.activation(x)
         x = self.pool(x)
+        
         return x
     
 """
