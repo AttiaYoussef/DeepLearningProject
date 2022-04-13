@@ -13,7 +13,7 @@ class Model():
         
         #L2 loss: appropriate for Gaussian, multiplicative bernoulli, poisson noise
         #L0 loss: appropriate for random valued impulse noise
-        self.loss = 0
+        self.loss = nn.MSELoss()
     
     
     def load_pretrained_model(self) -> None:
@@ -27,7 +27,7 @@ class Model():
         # : train ̇target : tensor of size (N , C , H , W ) containing another noisy version of the same images , which only differs from the input by their noise .
         epochs = 100
         N = train_input.size(0)
-        batch_size = 4
+        batch_size = 32
         for e in range(epochs):
             for index in range(0, N, batch_size):
                 self.optimizer.zero_grad()
