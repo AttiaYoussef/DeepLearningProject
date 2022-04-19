@@ -1,3 +1,7 @@
 data.zip
 **/.ipynb_checkpoints
+**/__pycache__
+**/val_data.pkl
+**/data_DL_project
+**/*.pdf
 data/

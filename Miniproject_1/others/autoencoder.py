@@ -22,10 +22,7 @@ class EncodingBlock(nn.Module):
         self.activation = nn.LeakyReLU(0.1)
     
     def forward(self,x):
-        print(x.size())
         x = self.conv(x)
-        print(x.size())
-        print("----------------------------------------------------")
         x = self.activation(x)
         x = self.pool(x)
         
