@@ -46,7 +46,7 @@ class Conv2d(Module):
         pass
     
     def params(self):
-        return []
+        return [self.weights, self.bias]
     
 class MSELoss(Module):
     def forward(self, input, target):
@@ -57,6 +57,7 @@ class MSELoss(Module):
     
     def params(self):
         return []
+    
 class Sequential(Module):
     def __init__(self, *modules):
         super().__init__()
@@ -70,7 +71,10 @@ class Sequential(Module):
         pass
     
     def params(self):
-        return []
+        parameters = []
+        for module in self.modules:
+            parameters += module.parameters()
+        return parameters()
     
 class ReLU(Module):
     def forward(self, x):
