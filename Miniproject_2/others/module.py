@@ -15,7 +15,7 @@ class Module(object):
 
 class Conv2d(Module):
     
-    def __init__(self, in_channels, out_channels, kernel, stride,padding,dilation):
+    def __init__(self, in_channels, out_channels, kernel, stride = 1, padding = 0, dilation = 1):
         super().__init__()
         
         def __parameter_int_or_tuple__(parameter):
@@ -32,11 +32,15 @@ class Conv2d(Module):
         self.padding = __parameter_int_or_tuple__(padding)
         self.dilation = __parameter_int_or_tuple__(dilation)
         
-        self.weights = torch.empty(out_channels,self.kernel[0], self.kernel[1])
-        self.bias = torch.empty(out_channels)
+        self.weights = torch.empty(out_channels,in_channels,self.kernel[0], self.kernel[1]) #TODO: initialize uniformly
+        self.bias = torch.empty(out_channels) #TODO: initialize uniformly
             
-    def forward(self, x):
-        pass
+    def forward(self, a):
+        n = a.size(0)
+        unfold_a = unfold(a, kernel_size = self.kernel, stride = self.stride, padding = self.padding, dilation = self.dilation)
+        h_out = math.floor(1 + (a.size(2) + 2 * self.padding[0] - self.dilation[0] * (self.kernel[0] - 1 ) - 1)/self.stride[0])
+        w_out = math.floor(1 + (a.size(3) + 2 * self.padding[1] - self.dilation[1] * (self.kernel[1] - 1 ) - 1)/self.stride[1])
+        return (self.weights.view(self.out_channels,-1) @ unfold_a + self.bias.view(1,-1,1)).view(n, self.out_channels, h_out, w_out)
     
     def backward(self, *gradwrtoutput):
         pass
@@ -67,6 +71,7 @@ class Sequential(Module):
     
     def params(self):
         return []
+    
 class ReLU(Module):
     def forward(self, x):
         x[x <= 0] = 0
