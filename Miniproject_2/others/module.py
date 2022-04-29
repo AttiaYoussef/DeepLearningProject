@@ -76,9 +76,10 @@ class Sequential(Module):
             parameters += module.parameters()
         return parameters()
     
-class ReLU(Module):
+class ReLU(Module):    
     def forward(self, x):
         x[x <= 0] = 0
+        self.x = x
         return x
     
     def backward(self, *gradwrtoutput):
@@ -89,7 +90,7 @@ class ReLU(Module):
     
 class Sigmoid(Module):
     def forward(self, x):
-        pass
+        return 1/(1 + torch.exp(-x))
     
     def backward(self, *gradwrtoutput):
         pass
