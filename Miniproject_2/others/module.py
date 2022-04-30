@@ -100,11 +100,13 @@ class Sequential(Module):
         return parameters()
     
 class ReLU(Module):
+    def __init__(self):
+        self.output = 0
     def forward(self, x):
         result = x.clone()
         result[result <= 0] = 0
+        self.output = result
         return result
-    
     def backward(self, *grad_wrt_output):
         pass
     
@@ -113,7 +115,7 @@ class ReLU(Module):
     
 class Sigmoid(Module):
     def forward(self, x):
-        pass
+        return 1/(1 + torch.exp(-x))
     
     def backward(self, *grad_wrt_output):
         pass
