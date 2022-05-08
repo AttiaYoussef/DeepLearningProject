@@ -37,6 +37,8 @@ class Conv2d(Module):
         self.bias = torch.empty(out_channels) #TODO: initialize
         self.dbias = torch.empty(self.bias.size())
         
+        self.unfolded_input = torch.empty()
+        
         ## Keep track of certain values
         self.last_input = 0    
         self.last_output = 0
@@ -47,17 +49,19 @@ class Conv2d(Module):
         self.last_input = a # Input is of shape (N, C, H, W)
         n = a.size(0)
         unfold_a = unfold(a, kernel_size = self.kernel, stride = self.stride, padding = self.padding, dilation = self.dilation)
+        self.last_input = torch.copy(unfold_a)
         self.h_out = h_out = math.floor(1 + (a.size(2) + 2 * self.padding[0] - self.dilation[0] * (self.kernel[0] - 1 ) - 1)/self.stride[0])
         self.w_out = w_out = math.floor(1 + (a.size(3) + 2 * self.padding[1] - self.dilation[1] * (self.kernel[1] - 1 ) - 1)/self.stride[1])
         self.last_output = (self.weights.view(self.out_channels,-1) @ unfold_a + self.bias.view(1,-1,1)).view(n, self.out_channels, h_out, w_out)
         return self.last_output # Output is of shape(N, D, H_out, W_out)
     
-    def backward(self, grad_wrt_output): #we have dl/ds(l), assume shape (D * H_out * W_out)
-        reshaped = grad_wrt_output.view(self.out_channels, self.h_out, self.w_out) # (D, H_out, W_out)
-        dl_dw = grad_wrt_output * self.last_input
-        dl_db = grad_wrt_output
-        self.dweights += dl_dw
-        self.dbias += dl_db
+    def backward(self, grad_wrt_output): #we have dl/ds(l), assume shape (n, D, H_out, W_out)
+        correct_shape_grad = grad_wrt_output.view(self.last_output.size(0), self.last_output.size(1), -1)
+        self.dbias = torch.sum(correct_shape_grad, axis=2)
+        self.dbias = torch.sum(self.dbias, axis=0)
+        
+        self.dweights = correct_shape_grad @ self.last_input.view(self.last_input.size(0), self.last_input.size(2), self.last_input.size(1))
+        self.dweights = torch.sum(self.dweights, axis=0)
         
         pass
     
