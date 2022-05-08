@@ -40,8 +40,8 @@ class Conv2d(Module):
         self.unfolded_input = torch.empty()
         
         ## Keep track of certain values
-        self.last_input = 0    
-        self.last_output = 0
+        self.last_input = None
+        self.last_output = None
         self.h_out = 0
         self.w_out = 0
         
@@ -49,7 +49,7 @@ class Conv2d(Module):
         self.last_input = a # Input is of shape (N, C, H, W)
         n = a.size(0)
         unfold_a = unfold(a, kernel_size = self.kernel, stride = self.stride, padding = self.padding, dilation = self.dilation)
-        self.last_input = torch.copy(unfold_a)
+        self.last_input = unfold_a.clone()
         self.h_out = h_out = math.floor(1 + (a.size(2) + 2 * self.padding[0] - self.dilation[0] * (self.kernel[0] - 1 ) - 1)/self.stride[0])
         self.w_out = w_out = math.floor(1 + (a.size(3) + 2 * self.padding[1] - self.dilation[1] * (self.kernel[1] - 1 ) - 1)/self.stride[1])
         self.last_output = (self.weights.view(self.out_channels,-1) @ unfold_a + self.bias.view(1,-1,1)).view(n, self.out_channels, h_out, w_out)
@@ -68,10 +68,20 @@ class Conv2d(Module):
     def params(self):
         return [(self.weights, self.dweights), (self.bias, self.dbias)]
     
-class MSELoss(Module):
+class MSE(Module):
     def forward(self, input, target):
         error = ((input - target)**2).sum()
         return error/input.size(0)
+    
+    def backward(self, *grad_wrt_output):
+        pass
+    
+    def params(self):
+        return []
+    
+class SGD(Module): #They want it as a module, go figure
+    def forward(self, *inputs):
+        pass
     
     def backward(self, *grad_wrt_output):
         pass
@@ -95,27 +105,37 @@ class Sequential(Module):
         parameters = []
         for module in self.modules:
             parameters += module.parameters()
-        return parameters()
+        return parameters
     
 class ReLU(Module):
     def __init__(self):
-        self.output = 0
+        self.last_input = None
+        self.last_output = None
+        
     def forward(self, x):
         result = x.clone()
         result[result <= 0] = 0
         self.output = result
         return result
-    def backward(self, *grad_wrt_output):
-        pass
     
+    def backward(self, grad_wrt_output): #see lecture 9.3, slide 16
+        mask = torch.empty(self.last_input.size()).fill(0)
+        mask[self.last_input > 0] = 1
+        #TODO: finish backwards
     def params(self):
         return []
     
 class Sigmoid(Module):
-    def forward(self, x):
-        return 1/(1 + torch.exp(-x))
     
-    def backward(self, *grad_wrt_output):
+    self.last_input = None
+    self.last_output = None
+    
+    def forward(self, x):
+        self.last_input = x
+        self.last_output = 1/(1 + (-x).exp())
+        return self.last_output
+    
+    def backward(self, grad_wrt_output):
         pass
     
     def params(self):
