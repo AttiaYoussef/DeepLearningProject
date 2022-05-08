@@ -73,7 +73,7 @@ class MSE(Module):
         error = ((input - target)**2).sum()
         return error/input.size(0)
     
-    def backward(self, *grad_wrt_output):
+    def backward(self, grad_wrt_output):
         pass
     
     def params(self):
@@ -113,6 +113,7 @@ class ReLU(Module):
         self.last_output = None
         
     def forward(self, x):
+        self.last_input = x
         result = x.clone()
         result[result <= 0] = 0
         self.output = result
@@ -121,7 +122,8 @@ class ReLU(Module):
     def backward(self, grad_wrt_output): #see lecture 9.3, slide 16
         mask = torch.empty(self.last_input.size()).fill(0)
         mask[self.last_input > 0] = 1
-        #TODO: finish backwards
+        return self.last_output
+    
     def params(self):
         return []
     
