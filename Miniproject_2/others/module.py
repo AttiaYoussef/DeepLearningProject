@@ -69,7 +69,12 @@ class Conv2d(Module):
         return [(self.weights, self.dweights), (self.bias, self.dbias)]
     
 class MSE(Module):
+    def __init__(self):
+        self.last_input = None
+        self.last_target = None
     def forward(self, input, target):
+        self.last_input = input
+        self.last_target = target
         error = ((input - target)**2).sum()
         return error/input.size(0)
     
