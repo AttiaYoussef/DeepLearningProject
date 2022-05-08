@@ -66,13 +66,7 @@ class Conv2d(Module):
     
 class MSELoss(Module):
     def forward(self, input, target):
-        error = 0
-        for n in range(input.size(0)):
-            for c in range(input.size(1)):
-                for row in range(input.size(2)):
-                    row_x = input[n,c,row]
-                    row_y = target[n,c,row]
-                    error += sum((row_x-row_y)**2)
+        error = ((input - target)**2).sum()
         return error/input.size(0)
     
     def backward(self, *grad_wrt_output):
