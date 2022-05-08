@@ -33,9 +33,9 @@ class Conv2d(Module):
         self.dilation = __parameter_int_or_tuple__(dilation)
         
         self.weights = torch.empty(out_channels,in_channels,self.kernel[0], self.kernel[1]) #TODO: initialize
-        self.dweights = torch.empty(self.weights.size())
+        self.dweights = torch.empty(self.weights.size()).fill_(0)
         self.bias = torch.empty(out_channels) #TODO: initialize
-        self.dbias = torch.empty(self.bias.size())
+        self.dbias = torch.empty(self.bias.size()).fill_(0)
         
         self.unfolded_input = torch.empty()
         
@@ -79,7 +79,13 @@ class MSE(Module):
     def params(self):
         return []
     
-class SGD(Module): #They want it as a module, go figure
+class SGD(Module): #They want it as a module, go figure why
+    
+    def __init__(self, model_params, lr, momentum = 0):
+        self.model_params = model_params
+        self.lr = lr
+        self.momentum = momentum
+        
     def forward(self, *inputs):
         pass
     
