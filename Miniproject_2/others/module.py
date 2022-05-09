@@ -135,7 +135,7 @@ class ReLU(Module):
     def backward(self, grad_wrt_output):
         mask = torch.empty(self.last_input.size()).fill(0)
         mask[self.last_input > 0] = 1
-        grad_wrt_input = mask * grad_wrt_output
+        grad_wrt_input = mask * grad_wrt_output # slide 10 of lecture 3.6
         return grad_wrt_input
     
     def params(self):
@@ -154,7 +154,7 @@ class Sigmoid(Module):
         return self.last_output
     
     def backward(self, grad_wrt_output):
-        grad_wrt_input = self.last_output * (1 - self.last_output)
+        grad_wrt_input = grad_wrt_output * (self.last_output * (1 - self.last_output)) # slide 10 of lecture 3.6
         return grad_wrt_input
     
     def params(self):
