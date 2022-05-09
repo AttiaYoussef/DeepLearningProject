@@ -130,10 +130,10 @@ class ReLU(Module):
         self.output = result
         return result
     
-    def backward(self, grad_wrt_output): #see lecture 9.3, slide 16
+    def backward(self, grad_wrt_output):
         mask = torch.empty(self.last_input.size()).fill(0)
         mask[self.last_input > 0] = 1
-        return self.last_output
+        return mask * grad_wrt_output
     
     def params(self):
         return []
