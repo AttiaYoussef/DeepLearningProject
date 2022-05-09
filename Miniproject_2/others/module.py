@@ -5,7 +5,7 @@ import math
 import random
 torch.set_grad_enabled(False)
 
-class Module(object):
+class Module(object): # Super class module
     def forward(self, *input):
         pass
     def backward(self, *grad_wrt_output):
@@ -45,7 +45,7 @@ class Conv2d(Module):
         self.h_out = 0
         self.w_out = 0
         
-    def forward(self, a):
+    def forward(self, a): 
         self.last_input = a # Input is of shape (N, C, H, W)
         n = a.size(0)
         unfold_a = unfold(a, kernel_size = self.kernel, stride = self.stride, padding = self.padding, dilation = self.dilation)
@@ -55,15 +55,16 @@ class Conv2d(Module):
         self.last_output = (self.weights.view(self.out_channels,-1) @ unfold_a + self.bias.view(1,-1,1)).view(n, self.out_channels, h_out, w_out)
         return self.last_output # Output is of shape(N, D, H_out, W_out)
     
-    def backward(self, grad_wrt_output): #we have dl/ds(l), assume shape (n, D, H_out, W_out)
+    def backward(self, grad_wrt_output): #we have dl/ds(l), assume shape (n, D, H_out, W_out). Lecture 3.6 as reference
         correct_shape_grad = grad_wrt_output.view(self.last_output.size(0), self.last_output.size(1), -1)
         grad_wrt_bias = correct_shape_grad.sum(dim=2)
         self.dbias += grad_wrt_bias.sum(dim = 0) #it's cumulative
         
         grad_wrt_weight = correct_shape_grad @ self.last_input.view(self.last_input.size(0), self.last_input.size(2), self.last_input.size(1))
-        self.dweights += grad_wrt_weight.sum(dim = 0) #it's cumulative
+        self.dweights += grad_wrt_weight.sum(dim = 0).view(self.weights.size()) #it's cumulative
         
-        pass
+        grad_wrt_input = (self.weights.view(-1, self.weights.size(0)) @ correct_shape_grad).view(self.last_input.size())
+        return grad_wrt_input
     
     def params(self):
         return [(self.weights, self.dweights), (self.bias, self.dbias)]
@@ -78,13 +79,14 @@ class MSE(Module):
         error = ((input - target)**2).sum()
         return error/input.size(0)
     
-    def backward(self, grad_wrt_output):
-        return 2 * (self.last_input - self.last_target).sum()/self.last_input.size(0)
+    def backward(self, grad_wrt_output): 
+        grad_wrt_input = 2 * (self.last_input - self.last_target).sum()/self.last_input.size(0) #simple derivative
+        return grad_wrt_input
     
     def params(self):
         return []
     
-class SGD(Module): #They want it as a module, go figure why
+class SGD(Module): #I think they want it as a module, go figure why
     
     def __init__(self, model_params, lr, momentum = 0):
         self.model_params = model_params
@@ -133,7 +135,8 @@ class ReLU(Module):
     def backward(self, grad_wrt_output):
         mask = torch.empty(self.last_input.size()).fill(0)
         mask[self.last_input > 0] = 1
-        return mask * grad_wrt_output
+        grad_wrt_input = mask * grad_wrt_output
+        return grad_wrt_input
     
     def params(self):
         return []
@@ -151,7 +154,8 @@ class Sigmoid(Module):
         return self.last_output
     
     def backward(self, grad_wrt_output):
-        return self.last_output * (1 - self.last_output)
+        grad_wrt_input = self.last_output * (1 - self.last_output)
+        return grad_wrt_input
     
     def params(self):
         return []
