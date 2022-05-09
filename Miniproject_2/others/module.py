@@ -15,7 +15,8 @@ class Module(object): # Super class module
 
 class Conv2d(Module):
     
-    def __init__(self, in_channels, out_channels, kernel, stride = 1, padding = 0, dilation = 1):
+    
+    def __init__(self, in_channels, out_channels, kernel, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros', device=None, dtype=None):
         super().__init__()
         
         def __parameter_int_or_tuple__(parameter):
@@ -70,28 +71,37 @@ class Conv2d(Module):
         return [(self.weights, self.dweights), (self.bias, self.dbias)]
     
 class MSE(Module):
-    def __init__(self):
+    def __init__(self,size_average=None, reduce=None, reduction='mean'):
         self.last_input = None
         self.last_target = None
+        self.reduction = reduction
     def forward(self, input, target):
         self.last_input = input
         self.last_target = target
         error = ((input - target)**2).sum()
-        return error/input.size(0)
+        if self.reduction == 'mean':
+            error = error/input.size(0)
+        return error
     
     def backward(self, grad_wrt_output): 
-        grad_wrt_input = 2 * (self.last_input - self.last_target)/self.last_input.size(0) #simple derivative
+        grad_wrt_input = 2 * (self.last_input - self.last_target) #simple derivative
+        if self.reduction == 'mean':
+            grad_wrt_input /= self.last_input.size(0)
         return grad_wrt_input
     
     def params(self):
         return []
     
-class SGD(Module): #I think they want it as a module, go figure why
+class SGD(object): #I think they want it as a module, go figure why
     
-    def __init__(self, model_params, lr, momentum = 0):
+    def __init__(self, params, lr=0.1, momentum=0, dampening=0, weight_decay=0, nesterov=False, *, maximize=False):
         self.model_params = model_params
         self.lr = lr
         self.momentum = momentum
+        self.dampening = dampening
+        self.weight_decay = weight_decay
+        self.nesterov = nesterov
+        self.maximize = maximize
         
     def forward(self, *inputs):
         pass
@@ -121,9 +131,10 @@ class Sequential(Module):
         return parameters
     
 class ReLU(Module):
-    def __init__(self):
+    def __init__(self, inplace=False):
         self.last_input = None
         self.last_output = None
+        self.inplace = inplace
         
     def forward(self, x):
         self.last_input = x
@@ -145,6 +156,8 @@ class Sigmoid(Module):
     
     self.last_input = None
     self.last_output = None
+    def __init__(self):
+        pass
     
     def __calculate_sigmoid__(self, x):
         return 1/(1 + (-x).exp())
