@@ -80,7 +80,7 @@ class MSE(Module):
         return error/input.size(0)
     
     def backward(self, grad_wrt_output): 
-        grad_wrt_input = 2 * (self.last_input - self.last_target).sum()/self.last_input.size(0) #simple derivative
+        grad_wrt_input = 2 * (self.last_input - self.last_target)/self.last_input.size(0) #simple derivative
         return grad_wrt_input
     
     def params(self):
