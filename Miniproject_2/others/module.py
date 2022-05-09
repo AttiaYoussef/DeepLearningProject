@@ -79,7 +79,7 @@ class MSE(Module):
         return error/input.size(0)
     
     def backward(self, grad_wrt_output):
-        pass
+        return 2 * (self.last_input - self.last_target).sum()/self.last_input.size(0)
     
     def params(self):
         return []
@@ -143,13 +143,15 @@ class Sigmoid(Module):
     self.last_input = None
     self.last_output = None
     
+    def __calculate_sigmoid__(self, x):
+        return 1/(1 + (-x).exp())
     def forward(self, x):
         self.last_input = x
-        self.last_output = 1/(1 + (-x).exp())
+        self.last_output = __calculate_sigmoid__(x)
         return self.last_output
     
     def backward(self, grad_wrt_output):
-        pass
+        return self.last_output * (1 - self.last_output)
     
     def params(self):
         return []
