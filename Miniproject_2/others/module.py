@@ -69,6 +69,16 @@ class Conv2d(Module):
     
     def params(self):
         return [(self.weights, self.dweights), (self.bias, self.dbias)]
+
+class TransposedConv2d(Module):
+    def __init__(self):
+        pass
+    
+    def forward(self,input):
+        pass
+    
+    def backward(self, *grad_wrt_output):
+        pass
     
 class MSE(Module):
     def __init__(self,size_average=None, reduce=None, reduction='mean'):
@@ -122,7 +132,8 @@ class Sequential(Module):
             x = module.forward(x)
             
     def backward(self, *grad_wrt_output):
-        pass
+        for module in self.modules[::-1] : #Go from last layer to the first
+            grad_wrt_output = module.backward(grad_wrt_output)
     
     def params(self):
         parameters = []
@@ -140,12 +151,12 @@ class ReLU(Module):
         self.last_input = x
         result = x.clone()
         result[result <= 0] = 0
-        self.output = result
+        self.last_output = result
         return result
     
     def backward(self, grad_wrt_output):
         mask = torch.empty(self.last_input.size()).fill(0)
-        mask[self.last_input > 0] = 1
+        mask[self.last_output > 0] = 1
         grad_wrt_input = mask * grad_wrt_output # slide 10 of lecture 3.6
         return grad_wrt_input
     
