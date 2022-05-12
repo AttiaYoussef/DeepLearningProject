@@ -104,8 +104,8 @@ class MSE(Module):
     
 class SGD(object):
     
-    def __init__(self, params, lr=0.1, momentum=0, dampening=0, weight_decay=0, nesterov=False, *, maximize=False):
-        self.model_params = model_params
+    def __init__(self, params, lr, momentum=0, dampening=0, weight_decay=0, nesterov=False, *, maximize=False):
+        self.model_params = params
         self.lr = lr
         self.momentum = momentum
         self.dampening = dampening
@@ -113,11 +113,40 @@ class SGD(object):
         self.nesterov = nesterov
         self.maximize = maximize
         
-    def step(self):
-        pass
+        # parameters needed in the case of momentum
+        self.b_ts = []
+        self.previous_grads = []
+        for (_, _) in self.model_params:
+            self.b_ts.append(None)
+            self.previous_grads.append(0)
+        
+        
+    def step(self): # see SGD on pytorch
+        for index, (module_param, module_param_grad) in enumerate(self.model_params):
+            if self.weight_decay != 0:
+                module_param_grad += self.weight_decay * module_param
+            if self.momentum != 0:
+                if self.b_ts[index] is None:
+                    self.b_ts[index] = module_param_grad
+                else:
+                    self.b_ts[index] = self.momentum * self.b_ts[index] + (1 - self.dampening) * module_param_grad
+                
+                if self.nesterov:
+                    module_param_grad = self.previous_grads[index] + self.momentum * self.b_ts[index]
+                else:
+                    module_param_grad = self.b_ts[index]
+                
+                self.previous_grads[index] = module_param_grad
+                
+            if self.maximize:
+                module_param += self.lr * module_param_grad
+            else:
+                module_param -= self.lr * module_param_grad
     
     def zero_grad(self):
-        for (module_param, module_param_grad) in self.model_params:
+        for i, (_, module_param_grad) in enumerate(self.model_params):
+            self.b_ts[index] = None
+            self.previous_grads[i] = 0
             module_param_grad.zero_()
         
     
