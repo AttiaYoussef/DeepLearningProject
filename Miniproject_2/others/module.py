@@ -86,15 +86,17 @@ class MSE(Module):
     def forward(self, input, target):
         self.last_input = input
         self.last_target = target
-        error = ((input - target)**2).sum()
+        error = ((input - target)**2)
         if self.reduction == 'mean':
-            error = error/input.size(0)
+            error = error.mean()
+        else:
+            error = error.sum()
         return error
     
     def backward(self, grad_wrt_output): 
         grad_wrt_input = 2 * (self.last_input - self.last_target) #simple derivative
         if self.reduction == 'mean':
-            grad_wrt_input /= self.last_input.size(0)
+            grad_wrt_input = grad_wrt_input.mean()
         return grad_wrt_input
     
     def params(self):
