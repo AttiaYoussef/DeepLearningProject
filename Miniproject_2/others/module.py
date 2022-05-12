@@ -102,7 +102,7 @@ class MSE(Module):
     def params(self):
         return []
     
-class SGD(object): #I think they want it as a module, go figure why
+class SGD(object):
     
     def __init__(self, params, lr=0.1, momentum=0, dampening=0, weight_decay=0, nesterov=False, *, maximize=False):
         self.model_params = model_params
@@ -113,14 +113,13 @@ class SGD(object): #I think they want it as a module, go figure why
         self.nesterov = nesterov
         self.maximize = maximize
         
-    def forward(self, *inputs):
+    def step(self):
         pass
     
-    def backward(self, *grad_wrt_output):
-        pass
-    
-    def params(self):
-        return []
+    def zero_grad(self):
+        for (module_param, module_param_grad) in self.model_params:
+            module_param_grad.zero_()
+        
     
 class Sequential(Module):
     def __init__(self, *modules):
