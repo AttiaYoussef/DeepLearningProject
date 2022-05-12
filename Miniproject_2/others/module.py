@@ -38,8 +38,6 @@ class Conv2d(Module):
         self.bias = torch.empty(out_channels) #TODO: initialize
         self.dbias = torch.empty(self.bias.size()).fill_(0)
         
-        self.unfolded_input = torch.empty()
-        
         ## Keep track of certain values
         self.last_input = None
         self.last_output = None
@@ -88,24 +86,26 @@ class MSE(Module):
     def forward(self, input, target):
         self.last_input = input
         self.last_target = target
-        error = ((input - target)**2).sum()
+        error = ((input - target)**2)
         if self.reduction == 'mean':
-            error = error/input.size(0)
+            error = error.mean()
+        else:
+            error = error.sum()
         return error
     
     def backward(self, grad_wrt_output): 
         grad_wrt_input = 2 * (self.last_input - self.last_target) #simple derivative
         if self.reduction == 'mean':
-            grad_wrt_input /= self.last_input.size(0)
+            grad_wrt_input = grad_wrt_input.mean()
         return grad_wrt_input
     
     def params(self):
         return []
     
-class SGD(object): #I think they want it as a module, go figure why
+class SGD(object):
     
-    def __init__(self, params, lr=0.1, momentum=0, dampening=0, weight_decay=0, nesterov=False, *, maximize=False):
-        self.model_params = model_params
+    def __init__(self, params, lr, momentum=0, dampening=0, weight_decay=0, nesterov=False, *, maximize=False):
+        self.model_params = params
         self.lr = lr
         self.momentum = momentum
         self.dampening = dampening
@@ -113,14 +113,42 @@ class SGD(object): #I think they want it as a module, go figure why
         self.nesterov = nesterov
         self.maximize = maximize
         
-    def forward(self, *inputs):
-        pass
+        # parameters needed in the case of momentum
+        self.b_ts = []
+        self.previous_grads = []
+        for (_, _) in self.model_params:
+            self.b_ts.append(None)
+            self.previous_grads.append(0)
+        
+        
+    def step(self): # see SGD on pytorch
+        for index, (module_param, module_param_grad) in enumerate(self.model_params):
+            if self.weight_decay != 0:
+                module_param_grad += self.weight_decay * module_param
+            if self.momentum != 0:
+                if self.b_ts[index] is None:
+                    self.b_ts[index] = module_param_grad
+                else:
+                    self.b_ts[index] = self.momentum * self.b_ts[index] + (1 - self.dampening) * module_param_grad
+                
+                if self.nesterov:
+                    module_param_grad = self.previous_grads[index] + self.momentum * self.b_ts[index]
+                else:
+                    module_param_grad = self.b_ts[index]
+                
+                self.previous_grads[index] = module_param_grad
+                
+            if self.maximize:
+                module_param += self.lr * module_param_grad
+            else:
+                module_param -= self.lr * module_param_grad
     
-    def backward(self, *grad_wrt_output):
-        pass
-    
-    def params(self):
-        return []
+    def zero_grad(self):
+        for i, (_, module_param_grad) in enumerate(self.model_params):
+            self.b_ts[index] = None
+            self.previous_grads[i] = 0
+            module_param_grad.zero_()
+        
     
 class Sequential(Module):
     def __init__(self, *modules):
@@ -164,11 +192,9 @@ class ReLU(Module):
         return []
     
 class Sigmoid(Module):
-    
-    self.last_input = None
-    self.last_output = None
     def __init__(self):
-        pass
+        self.last_input = None
+        self.last_output = None
     
     def __calculate_sigmoid__(self, x):
         return 1/(1 + (-x).exp())
