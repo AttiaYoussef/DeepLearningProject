@@ -25,7 +25,7 @@ class Model():
     def train(self, train_input,train_target) -> None:
         # : train ̇input : tensor of size (N , C , H , W ) containing a noisy version of the images
         # : train ̇target : tensor of size (N , C , H , W ) containing another noisy version of the same images , which only differs from the input by their noise .
-        epochs = 100
+        epochs = 7
         N = train_input.size(0)
         batch_size = 32
         for e in range(epochs):
