@@ -38,8 +38,6 @@ class Conv2d(Module):
         self.bias = torch.empty(out_channels) #TODO: initialize
         self.dbias = torch.empty(self.bias.size()).fill_(0)
         
-        self.unfolded_input = torch.empty()
-        
         ## Keep track of certain values
         self.last_input = None
         self.last_output = None
