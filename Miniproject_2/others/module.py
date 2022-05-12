@@ -192,11 +192,9 @@ class ReLU(Module):
         return []
     
 class Sigmoid(Module):
-    
-    self.last_input = None
-    self.last_output = None
     def __init__(self):
-        pass
+        self.last_input = None
+        self.last_output = None
     
     def __calculate_sigmoid__(self, x):
         return 1/(1 + (-x).exp())
