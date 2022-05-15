@@ -96,7 +96,7 @@ class MSE(Module):
     def backward(self, grad_wrt_output): 
         grad_wrt_input = 2 * (self.last_input - self.last_target) #simple derivative
         if self.reduction == 'mean':
-            grad_wrt_input = grad_wrt_input.mean()
+            grad_wrt_input = grad_wrt_input/(self.last_input.size(0)*self.last_input.size(1)*self.last_input.size(2)*self.last_input.size(3))
         return grad_wrt_input
     
     def params(self):
@@ -145,7 +145,7 @@ class SGD(object):
     
     def zero_grad(self):
         for i, (_, module_param_grad) in enumerate(self.model_params):
-            self.b_ts[index] = None
+            self.b_ts[i] = None
             self.previous_grads[i] = 0
             module_param_grad.zero_()
         
