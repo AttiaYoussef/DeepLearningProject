@@ -68,15 +68,15 @@ class Conv2d(Module):
     def params(self):
         return [(self.weights, self.dweights), (self.bias, self.dbias)]
 
-class TransposedConv2d(Module):
-    def __init__(self):
-        pass
+class Upsample(Module):
+    def __init__(self, scale):
+        self.scale = scale
     
     def forward(self,input):
-        pass
+        return input.repeat_interleave(self.scale, dim=2).repeat_interleave(slef.scale, dim=3)
     
     def backward(self, *grad_wrt_output):
-        pass
+        return torch.mean(torch.stack([y[:,:,i::self.scale,i::self.scale] for i in range(self.scale)]), axis=0)
     
 class MSE(Module):
     def __init__(self,size_average=None, reduce=None, reduction='mean'):
