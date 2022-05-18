@@ -74,15 +74,15 @@ class Upsample(Module):
             self.scale = __parameter_int_or_tuple__(scale_factor)
     
     def forward(self,input):
-        return input.repeat_interleave(self.scale(0), dim=2).repeat_interleave(self.scale(1), dim=3)
+        return input.repeat_interleave(self.scale[0], dim=2).repeat_interleave(self.scale[1], dim=3)
     
     def backward(self, grad_wrt_output):
-        acc=torch.zeros(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale(0)),int(grad_wrt_output.size(3)/self.scale(1)))
+        acc=torch.zeros(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale[0]),int(grad_wrt_output.size(3)/self.scale[1]))
         
-        for i in range(self.scale(0)):
-            for j in range(self.scale(1)):
-                acc=torch.cat((acc,grad_wrt_output[:,:,i::self.scale(0),j::self.scale(1)].\
-                               view(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale(0)),int(grad_wrt_output.size(3)/self.scale(1)))),dim=0)
+        for i in range(self.scale[0]):
+            for j in range(self.scale[1]):
+                acc=torch.cat((acc,grad_wrt_output[:,:,i::self.scale[0],j::self.scale[1]].\
+                               view(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale[0]),int(grad_wrt_output.size(3)/self.scale[1]))),dim=0)
         
         
         return acc.sum(dim=0)
