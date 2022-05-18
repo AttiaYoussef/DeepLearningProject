@@ -5,6 +5,13 @@ import math
 import random
 torch.set_grad_enabled(False)
 
+def __parameter_int_or_tuple__(parameter):
+    if type(parameter) is int:
+        returned = (parameter,parameter)
+    else:
+        returned = parameter
+    return returned
+
 class Module(object): # Super class module
     def forward(self, *input):
         pass
@@ -16,13 +23,6 @@ class Module(object): # Super class module
 class Conv2d(Module):
     def __init__(self, in_channels, out_channels, kernel, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros', device=None, dtype=None):
         super().__init__()
-        
-        def __parameter_int_or_tuple__(parameter):
-            if type(parameter) is int:
-                returned = (parameter,parameter)
-            else:
-                returned = parameter
-            return returned
         
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -67,18 +67,24 @@ class Conv2d(Module):
         return [(self.weights, self.dweights), (self.bias, self.dbias)]
 
 class Upsample(Module):
-    def __init__(self, scale):
-        self.scale = scale
+    def __init__(self, size=None, scale_factor=None, mode='nearest', align_corners=None, recompute_scale_factor=None):
+        if size is not None :
+            self.scale = __parameter_int_or_tuple__(size)
+        elif scale_factor is not None :
+            self.scale = __parameter_int_or_tuple__(scale_factor)
     
     def forward(self,input):
-        return input.repeat_interleave(self.scale, dim=2).repeat_interleave(slef.scale, dim=3)
+        return input.repeat_interleave(self.scale(0), dim=2).repeat_interleave(self.scale(1), dim=3)
     
     def backward(self, grad_wrt_output):
-        acc=torch.zeros(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/scale),int(grad_wrt_output.size(3)/scale))
-    
-        for i in range(scale):
-            for j in range(scale):
-                acc=torch.cat((acc,grad_wrt_output[:,:,j::2,i::2].view(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/scale),int(grad_wrt_output.size(3)/scale))),dim=0)
+        acc=torch.zeros(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale(0)),int(grad_wrt_output.size(3)/self.scale(1)))
+        
+        for i in range(self.scale(0)):
+            for j in range(self.scale(1)):
+                acc=torch.cat((acc,grad_wrt_output[:,:,i::self.scale(0),j::self.scale(1)].\
+                               view(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale(0)),int(grad_wrt_output.size(3)/self.scale(1)))),dim=0)
+        
+        
         return acc.sum(dim=0)
     
 class MSE(Module):

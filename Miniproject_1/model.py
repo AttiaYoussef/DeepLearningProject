@@ -3,22 +3,27 @@ import torch
 from torch import nn
 from torch import optim
 
+
+
 class Model():
     
     def __init__(self) -> None:
         # # instantiate model + optimizer + loss function + any other stuff you need
         
-        self.model = Noise2Noise()
-        self.optimizer = optim.Adam(model.parameters(), lr=0.001, betas=(0.9, 0.99), eps=1e-08, weight_decay=0)        
+        if torch.cuda.is_available() :
+            device = torch.device("cuda:0")
+        else :
+            device = torch.device("cpu")
         
-        #L2 loss: appropriate for Gaussian, multiplicative bernoulli, poisson noise
-        #L0 loss: appropriate for random valued impulse noise
-        self.loss = nn.MSELoss()
+        self.model = Noise2Noise(encoding_block_dropout = 0, decoding_block_dropout = 0)
+        self.model = model.to(device)
+        self.optimizer = optim.Adam(model.parameters(), lr=0.0015, betas=(0.9, 0.99), eps=1e-08, weight_decay=0)       
+        self.loss = nn.HuberLoss(delta=2.0).to(device)
     
     
     def load_pretrained_model(self) -> None:
         ## This loads the parameters saved in bestmodel . pth into the model
-        self.model.load_state_dict(torch.load('bestmodel.pth'))
+        self.model.load_state_dict(torch.load('BestModel-3BlocksUnet'))
         
     
     
@@ -37,7 +42,7 @@ class Model():
                 self.optimizer.step()
                 
     
-    def predict(self, test_input) -> None:
+    def predict(self, test_input) -> torch.Tensor:
         # : test ̇input : tensor of size ( N1 , C , H , W ) that has to be denoised by the trained or the loaded network .
         return self.model(test_input)
     
