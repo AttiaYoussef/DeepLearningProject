@@ -102,7 +102,7 @@ class MSE(Module):
             error = error.sum()
         return error
     
-    def backward(self, grad_wrt_output): 
+    def backward(self): 
         grad_wrt_input = 2 * (self.last_input - self.last_target) #simple derivative
         if self.reduction == 'mean':
             grad_wrt_input = grad_wrt_input/(self.last_input.size(0)*self.last_input.size(1)*self.last_input.size(2)*self.last_input.size(3))
@@ -164,9 +164,11 @@ class Sequential(Module):
         super().__init__()
         self.modules = modules
     
-    def forward(self, *x):
+    def forward(self, x):
+        y = torch.clone(x)
         for module in self.modules:
-            x = module.forward(x)
+            y = module.forward(y)
+        return y
             
     def backward(self, *grad_wrt_output):
         for module in self.modules[::-1] : #Go from last layer to the first
@@ -207,9 +209,10 @@ class Sigmoid(Module):
     
     def __calculate_sigmoid__(self, x):
         return 1/(1 + (-x).exp())
+    
     def forward(self, x):
         self.last_input = x
-        self.last_output = __calculate_sigmoid__(x)
+        self.last_output = 1/(1 + (-x).exp())
         return self.last_output
     
     def backward(self, grad_wrt_output):
