@@ -14,8 +14,6 @@ class Module(object): # Super class module
         return []
 
 class Conv2d(Module):
-    
-    
     def __init__(self, in_channels, out_channels, kernel, stride=1, padding=0, dilation=1, groups=1, bias=True, padding_mode='zeros', device=None, dtype=None):
         super().__init__()
         
@@ -75,8 +73,13 @@ class Upsample(Module):
     def forward(self,input):
         return input.repeat_interleave(self.scale, dim=2).repeat_interleave(slef.scale, dim=3)
     
-    def backward(self, *grad_wrt_output):
-        return torch.mean(torch.stack([y[:,:,i::self.scale,i::self.scale] for i in range(self.scale)]), axis=0)
+    def backward(self, grad_wrt_output):
+        acc=torch.zeros(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/scale),int(grad_wrt_output.size(3)/scale))
+    
+        for i in range(scale):
+            for j in range(scale):
+                acc=torch.cat((acc,grad_wrt_output[:,:,j::2,i::2].view(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/scale),int(grad_wrt_output.size(3)/scale))),dim=0)
+        return acc.sum(dim=0)
     
 class MSE(Module):
     def __init__(self,size_average=None, reduce=None, reduction='mean'):
