@@ -58,6 +58,8 @@ class Conv2d(Module):
         grad_wrt_bias = correct_shape_grad.sum(dim=2)
         self.dbias += grad_wrt_bias.sum(dim = 0) #it's cumulative
         
+        
+        
         grad_wrt_weight = correct_shape_grad @ self.last_input.view(self.last_input.size(0), self.last_input.size(2), self.last_input.size(1))
         self.dweights += grad_wrt_weight.sum(dim = 0).view(self.weights.size()) #it's cumulative
         

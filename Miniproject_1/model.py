@@ -1,4 +1,4 @@
-from others.autoencoder import *
+from Miniproject_1.others.autoencoder import *
 import torch
 from torch import nn
 from torch import optim
@@ -16,14 +16,14 @@ class Model():
             device = torch.device("cpu")
         
         self.model = Noise2Noise(encoding_block_dropout = 0, decoding_block_dropout = 0)
-        self.model = model.to(device)
-        self.optimizer = optim.Adam(model.parameters(), lr=0.0015, betas=(0.9, 0.99), eps=1e-08, weight_decay=0)       
+        self.model = self.model.to(device)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.0015, betas=(0.9, 0.99), eps=1e-08, weight_decay=0)       
         self.loss = nn.HuberLoss(delta=2.0).to(device)
     
     
     def load_pretrained_model(self) -> None:
         ## This loads the parameters saved in bestmodel . pth into the model
-        self.model.load_state_dict(torch.load('BestModel-3BlocksUnet'))
+        self.model.load_state_dict(torch.load('Miniproject_1/BestModel-3blocksUnet', map_location=torch.device('cpu')))
         
     
     
