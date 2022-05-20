@@ -31,7 +31,7 @@ class Conv2d(Module):
         self.padding = __parameter_int_or_tuple__(padding)
         self.dilation = __parameter_int_or_tuple__(dilation)
         
-        bound = groups/(in_channels * self.kernel[0] * self.kernel[1]) ** (0.5)
+        bound = math.sqrt(groups/(in_channels * self.kernel[0] * self.kernel[1]))
         self.weights = torch.empty(out_channels, in_channels, self.kernel[0], self.kernel[1]).uniform_(-bound, bound)
         self.dweights = torch.empty(self.weights.size()).fill_(0)
         self.bias = torch.empty(out_channels).uniform_(-bound, bound)
