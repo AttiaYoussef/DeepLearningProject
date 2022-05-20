@@ -67,7 +67,7 @@ class Conv2d(Module):
     def params(self):
         return [(self.weights, self.dweights), (self.bias, self.dbias)]
 
-class Upsample(Module):
+class NearestUpsampling(Module):
     def __init__(self, size=None, scale_factor=None, mode='nearest', align_corners=None, recompute_scale_factor=None):
         if size is not None :
             self.scale = __parameter_int_or_tuple__(size)
