@@ -3,7 +3,7 @@ from torch import empty, cat, arange
 from torch.nn.functional import fold, unfold
 import math
 import random
-torch.set_grad_enabled(False)
+#torch.set_grad_enabled(False)
 
 def __parameter_int_or_tuple__(parameter):
     if type(parameter) is int:
@@ -38,15 +38,19 @@ class Conv2d(Module):
         self.dbias = torch.empty(self.bias.size()).fill_(0)
         
         ## Keep track of certain values
+        self.last_input_size = None
         self.last_input = None
+        self.last_input_mask = None
         self.last_output = None
         self.h_out = 0
         self.w_out = 0
         
     def forward(self, a): 
-        self.last_input = a # Input is of shape (N, C, H, W)
+        self.last_input_size = a.size() # Input is of shape (N, C, H, W)
         n = a.size(0)
         unfold_a = unfold(a, kernel_size = self.kernel, stride = self.stride, padding = self.padding, dilation = self.dilation)
+        self.last_input_mask = unfold(torch.empty(a.size()).fill_(1),  kernel_size = self.kernel, stride = self.stride, padding = self.padding, dilation = self.dilation)
+        
         self.last_input = unfold_a.clone()
         self.h_out = h_out = math.floor(1 + (a.size(2) + 2 * self.padding[0] - self.dilation[0] * (self.kernel[0] - 1 ) - 1)/self.stride[0])
         self.w_out = w_out = math.floor(1 + (a.size(3) + 2 * self.padding[1] - self.dilation[1] * (self.kernel[1] - 1 ) - 1)/self.stride[1])
@@ -55,15 +59,23 @@ class Conv2d(Module):
     
     def backward(self, grad_wrt_output): #we have dl/ds(l), assume shape (n, D, H_out, W_out). Lecture 3.6 as reference
         correct_shape_grad = grad_wrt_output.view(self.last_output.size(0), self.last_output.size(1), -1)
-        grad_wrt_bias = correct_shape_grad.sum(dim=2)
-        self.dbias += grad_wrt_bias.sum(dim = 0) #it's cumulative
+        grad_wrt_bias = grad_wrt_output.sum(dim=[0,2,3])
+        self.dbias += grad_wrt_bias*2 #it's cumulative i dont know why its multiplied by 2 but it works
         
         
+        def spicy_reshape(x):
+            return x.transpose(0,1).transpose(1,2).reshape(x.shape[1],x.shape[0]*x.shape[2])
         
-        grad_wrt_weight = correct_shape_grad @ self.last_input.view(self.last_input.size(0), self.last_input.size(2), self.last_input.size(1))
-        self.dweights += grad_wrt_weight.sum(dim = 0).view(self.weights.size()) #it's cumulative
         
-        grad_wrt_input = (self.weights.view(-1, self.weights.size(0)) @ correct_shape_grad).view(self.last_input.size())
+        dout_reshaped = grad_wrt_output.transpose(0,1).transpose(1,2).transpose(2,3).reshape(self.out_channels, -1)
+        dW = dout_reshaped @ spicy_reshape(self.last_input).T
+        self.dweights += dW.reshape(self.weights.shape)*2 #why are you here *2 ?
+        
+        #grad_wrt_weight = correct_shape_grad @ self.last_input.view(self.last_input.size(0), self.last_input.size(2), self.last_input.size(1))
+        #self.dweights += grad_wrt_weight.sum(dim = 0).view(self.weights.size()) #it's cumulative
+        
+        grad_wrt_input = (self.weights.view(self.weights.size(0), -1).T @ correct_shape_grad).view(self.last_input.size())
+        grad_wrt_input = fold(grad_wrt_input, output_size = self.last_input_size[2:], kernel_size = self.kernel,dilation=self.dilation, padding=self.padding, stride=self.stride)
         return grad_wrt_input
     
     def params(self):
@@ -180,7 +192,7 @@ class Sequential(Module):
     def params(self):
         parameters = []
         for module in self.modules:
-            parameters += module.parameters()
+            parameters += module.params()
         return parameters
     
 class ReLU(Module):
