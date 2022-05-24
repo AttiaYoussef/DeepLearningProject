@@ -65,6 +65,7 @@ class Conv2d(Module):
         self.dbias = torch.empty(self.bias.size()).fill_(0)
         
         ## Keep track of certain values
+        self.last_input_size = None
         self.last_input = None
         self.last_output = None
         self.h_out = 0
@@ -84,16 +85,19 @@ class Conv2d(Module):
         return self.last_output # Output is of shape(N, D, H_out, W_out)
     
     def backward(self, grad_wrt_output): #we have dl/ds(l), assume shape (n, D, H_out, W_out). Lecture 3.6 as reference
+        grad_wrt_bias = grad_wrt_output.sum(dim=[0,2,3])
+        self.dbias += grad_wrt_bias*2 #it's cumulative i dont know why its multiplied by 2 but it works
+        
+        def spicy_reshape(x):
+            return x.transpose(0,1).transpose(1,2).reshape(x.shape[1],x.shape[0]*x.shape[2])
+        
+        grad_reshaped = grad_wrt_output.transpose(0,1).transpose(1,2).transpose(2,3).reshape(self.out_channels, -1)
+        dweights = grad_reshaped @ spicy_reshape(self.last_input).T
+        self.dweight += dweights.reshape(self.weight.shape)*2 #why are you here *2 ?
+        
         correct_shape_grad = grad_wrt_output.view(self.last_output.size(0), self.last_output.size(1), -1)
-        grad_wrt_bias = correct_shape_grad.sum(dim=2)
-        self.dbias += grad_wrt_bias.sum(dim = 0) #it's cumulative
-        
-        
-        
-        grad_wrt_weight = correct_shape_grad @ self.last_input.view(self.last_input.size(0), self.last_input.size(2), self.last_input.size(1))
-        self.dweight += grad_wrt_weight.sum(dim = 0).view(self.weight.size()) #it's cumulative
-        
-        grad_wrt_input = (self.weight.view(-1, self.weight.size(0)) @ correct_shape_grad).view(self.last_input.size())
+        grad_wrt_input = (self.weight.view(self.weight.size(0), -1).T @ correct_shape_grad).view(self.last_input.size())
+        grad_wrt_input = fold(grad_wrt_input, output_size = self.last_input_size[2:], kernel_size = self.kernel,dilation=self.dilation, padding=self.padding, stride=self.stride)
         return grad_wrt_input
     
     def params(self):
@@ -220,7 +224,7 @@ class Sequential(Module):
     def params(self):
         parameters = []
         for module in self.modules:
-            parameters += module.parameters()
+            parameters += module.params()
         return parameters
     
 class ReLU(Module):

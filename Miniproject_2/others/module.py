@@ -40,7 +40,6 @@ class Conv2d(Module):
         ## Keep track of certain values
         self.last_input_size = None
         self.last_input = None
-        self.last_input_mask = None
         self.last_output = None
         self.h_out = 0
         self.w_out = 0
@@ -49,7 +48,6 @@ class Conv2d(Module):
         self.last_input_size = a.size() # Input is of shape (N, C, H, W)
         n = a.size(0)
         unfold_a = unfold(a, kernel_size = self.kernel, stride = self.stride, padding = self.padding, dilation = self.dilation)
-        self.last_input_mask = unfold(torch.empty(a.size()).fill_(1),  kernel_size = self.kernel, stride = self.stride, padding = self.padding, dilation = self.dilation)
         
         self.last_input = unfold_a.clone()
         self.h_out = h_out = math.floor(1 + (a.size(2) + 2 * self.padding[0] - self.dilation[0] * (self.kernel[0] - 1 ) - 1)/self.stride[0])
