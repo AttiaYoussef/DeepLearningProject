@@ -60,7 +60,7 @@ class Conv2d(Module):
     def backward(self, grad_wrt_output): #we have dl/ds(l), assume shape (n, D, H_out, W_out). Lecture 3.6 as reference
         correct_shape_grad = grad_wrt_output.view(self.last_output.size(0), self.last_output.size(1), -1)
         grad_wrt_bias = grad_wrt_output.sum(dim=[0,2,3])
-        self.dbias += grad_wrt_bias*2 #it's cumulative i dont know why its multiplied by 2 but it works
+        self.dbias += grad_wrt_bias #it's cumulative 
         
         
         def spicy_reshape(x):
@@ -69,7 +69,7 @@ class Conv2d(Module):
         
         dout_reshaped = grad_wrt_output.transpose(0,1).transpose(1,2).transpose(2,3).reshape(self.out_channels, -1)
         dW = dout_reshaped @ spicy_reshape(self.last_input).T
-        self.dweights += dW.reshape(self.weights.shape)*2 #why are you here *2 ?
+        self.dweights += dW.reshape(self.weights.shape)
         
         #grad_wrt_weight = correct_shape_grad @ self.last_input.view(self.last_input.size(0), self.last_input.size(2), self.last_input.size(1))
         #self.dweights += grad_wrt_weight.sum(dim = 0).view(self.weights.size()) #it's cumulative
@@ -92,12 +92,12 @@ class NearestUpsampling(Module):
         return input.repeat_interleave(self.scale[0], dim=2).repeat_interleave(self.scale[1], dim=3)
     
     def backward(self, grad_wrt_output):
-        acc=torch.zeros(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale[0]),int(grad_wrt_output.size(3)/self.scale[1]))
+        acc=torch.zeros(1,grad_wrt_output.size(0),grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale[0]),int(grad_wrt_output.size(3)/self.scale[1]))
         
         for i in range(self.scale[0]):
             for j in range(self.scale[1]):
                 acc=torch.cat((acc,grad_wrt_output[:,:,i::self.scale[0],j::self.scale[1]].\
-                               view(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale[0]),int(grad_wrt_output.size(3)/self.scale[1]))),dim=0)
+                               view(1,grad_wrt_output.size(0),grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale[0]),int(grad_wrt_output.size(3)/self.scale[1]))),dim=0)
         
         
         return acc.sum(dim=0)
@@ -185,8 +185,9 @@ class Sequential(Module):
             y = module.forward(y)
         return y
             
-    def backward(self, *grad_wrt_output):
+    def backward(self, grad_wrt_output):
         for module in self.modules[::-1] : #Go from last layer to the first
+            
             grad_wrt_output = module.backward(grad_wrt_output)
     
     def params(self):
@@ -209,7 +210,7 @@ class ReLU(Module):
         return result
     
     def backward(self, grad_wrt_output):
-        mask = torch.empty(self.last_input.size()).fill(0)
+        mask = torch.empty(self.last_input.size()).fill_(0)
         mask[self.last_output > 0] = 1
         grad_wrt_input = mask * grad_wrt_output # slide 10 of lecture 3.6
         return grad_wrt_input
@@ -231,7 +232,7 @@ class Sigmoid(Module):
         return self.last_output
     
     def backward(self, grad_wrt_output):
-        grad_wrt_input = grad_wrt_output * (self.last_output * (1 - self.last_output)) # slide 10 of lecture 3.6
+        grad_wrt_input = grad_wrt_output * (self.last_output * (1.0 - self.last_output)) # slide 10 of lecture 3.6
         return grad_wrt_input
     
     def params(self):
