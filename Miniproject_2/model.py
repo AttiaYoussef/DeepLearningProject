@@ -1,6 +1,11 @@
 import torch
-from torch import nn
-from torch import optim
+from torch import empty, cat, arange
+from torch.nn.functional import fold, unfold
+import math
+import random
+import pickle
+
+torch.set_grad_enabled(False)
 
 
 class Model():
@@ -32,13 +37,13 @@ class Model():
     
     def load_pretrained_model(self) -> None:
         ## This loads the parameters saved in bestmodel . pth into the model
-        pass
+        self.model=pickle.load(open('bestmodel.pth','rb'))
         
     
     def train(self, train_input,train_target) -> None:
         # : train ̇input : tensor of size (N , C , H, W ) containing a noisy version of the images
         # : train ̇target : tensor of size (N , C , H , W ) containing another noisy version of the same images , which only differs from the input by their noise .
-        epochs = 17
+        epochs = 15
         batch_size = 32
         
         for i in range(epochs):
@@ -50,6 +55,8 @@ class Model():
                 self.model.backward(self.loss.backward())
                 self.optimizer.step()
                 
+           
+                
         
                 
     
@@ -58,11 +65,7 @@ class Model():
         return self.model(test_input)
 
     
-from torch import empty, cat, arange
-from torch.nn.functional import fold, unfold
-import math
-import random
-torch.set_grad_enabled(False)
+
 
 def __parameter_int_or_tuple__(parameter):
     if type(parameter) is int:
@@ -163,10 +166,13 @@ class Upsampling(Module):
     def __init__(self,in_channels, out_channels, kernel_size, dilation=1, padding=0, scale_factor=1 , stride=1):
         self.conv=Conv2d(in_channels,out_channels,kernel_size, dilation, padding,stride)
         self.nn=NNUpsampling(scale_factor)
+        
     def __call__(self, input) :
         return self.forward(input)
+    
     def forward(self,input):
         return self.conv(self.nn(input))
+    
     def backward(self,grad_wrt_output):
         return self.nn.backward(self.conv.backward(grad_wrt_output))    
     

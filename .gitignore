@@ -1,7 +1,9 @@
 data.zip
 **/.ipynb_checkpoints
 **/__pycache__
-**/val_data.pkl
+**/val_data.pk
 **/data_DL_project
 **/*.pdf
+**/bestmodel.pths
 data/
+Miniproject_2/bestmodel.pth
