@@ -121,14 +121,14 @@ class Conv2d(Module):
     
     def backward(self, grad_wrt_output): #we have dl/ds(l), assume shape (n, D, H_out, W_out). Lecture 3.6 as reference
         grad_wrt_bias = grad_wrt_output.sum(dim=[0,2,3])
-        self.dbias += grad_wrt_bias*2 #it's cumulative i dont know why its multiplied by 2 but it works
+        self.dbias += grad_wrt_bias #it's cumulative 
         
         def spicy_reshape(x):
             return x.transpose(0,1).transpose(1,2).reshape(x.shape[1],x.shape[0]*x.shape[2])
         
         grad_reshaped = grad_wrt_output.transpose(0,1).transpose(1,2).transpose(2,3).reshape(self.out_channels, -1)
         dweights = grad_reshaped @ spicy_reshape(self.last_input).T
-        self.dweight += dweights.reshape(self.weight.shape)*2 #why are you here *2 ?
+        self.dweight += dweights.reshape(self.weight.shape) 
         
         correct_shape_grad = grad_wrt_output.view(self.last_output.size(0), self.last_output.size(1), -1)
         grad_wrt_input = (self.weight.view(self.weight.size(0), -1).T @ correct_shape_grad).view(self.last_input.size())
