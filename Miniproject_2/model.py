@@ -176,6 +176,9 @@ class Upsampling(Module):
     def backward(self,grad_wrt_output):
         return self.nn.backward(self.conv.backward(grad_wrt_output))    
     
+    def params(self):
+        return [(self.conv.weight, self.conv.dweight), (self.conv.bias, self.conv.dbias)]
+    
 class MSE(Module):
     def __init__(self,size_average=None, reduce=None, reduction='mean'):
         self.last_input = None
