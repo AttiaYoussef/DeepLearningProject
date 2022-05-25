@@ -7,7 +7,27 @@ class Model():
     
     def __init__(self) -> None:
         ## instantiate model + optimizer + loss function + any other stuff you need
-        pass
+        kernel = 3
+        stride = 2
+        
+        self.model = Sequential(
+            Conv2d(3,48,kernel,stride),
+            ReLU(),
+            Conv2d(48,48,kernel,stride),
+            ReLU(),
+            Conv2d(48,48,kernel,stride = 1, padding = 2),
+            NNUpsampling(scale_factor = 2),
+            Conv2d(48,24,kernel,stride = 1,),
+            ReLU(),
+            Conv2d(24,24,kernel,stride = 1, padding = 2),
+            NNUpsampling(scale_factor = 2),
+            Conv2d(24,24,kernel,stride = 1,),
+            Conv2d(24,3,kernel,stride = 1,),
+            Sigmoid()
+        )
+        
+        self.optimizer = SGD(self.model.params(), lr = 0.15)
+        self.loss = MSELoss()
     
     
     def load_pretrained_model(self) -> None:
@@ -16,14 +36,26 @@ class Model():
         
     
     def train(self, train_input,train_target) -> None:
-        # : train ̇input : tensor of size (N , C , H , W ) containing a noisy version of the images
+        # : train ̇input : tensor of size (N , C , H, W ) containing a noisy version of the images
         # : train ̇target : tensor of size (N , C , H , W ) containing another noisy version of the same images , which only differs from the input by their noise .
-        pass
+        epochs = 17
+        batch_size = 32
+        
+        for i in range(epochs):
+            for b in range(0, len(train_input), batch_size):
+                self.optimizer.zero_grad()
+                data = train_input[b:b+batch_size]
+                target = train_target[b:b+batch_size]
+                output=self.loss(self.model(data),target)
+                self.model.backward(self.loss.backward())
+                self.optimizer.step()
+                
+        
                 
     
     def predict(self, test_input) -> torch.Tensor:
         # : test ̇input : tensor of size ( N1 , C , H , W ) that has to be denoised by the trained or the loaded network .
-        pass
+        return self.model(test_input)
 
     
 from torch import empty, cat, arange
@@ -75,7 +107,7 @@ class Conv2d(Module):
         return self.forward(a)
         
     def forward(self, a): 
-        self.last_input = a # Input is of shape (N, C, H, W)
+        self.last_input_size = a.size() # Input is of shape (N, C, H, W)
         n = a.size(0)
         unfold_a = unfold(a, kernel_size = self.kernel, stride = self.stride, padding = self.padding, dilation = self.dilation)
         self.last_input = unfold_a.clone()
@@ -101,9 +133,9 @@ class Conv2d(Module):
         return grad_wrt_input
     
     def params(self):
-        return [(self.weights, self.dweights), (self.bias, self.dbias)]
+        return [(self.weight, self.dweight), (self.bias, self.dbias)]
 
-class NearestUpsampling(Module):
+class NNUpsampling(Module):
     def __init__(self, size=None, scale_factor=None, mode='nearest', align_corners=None, recompute_scale_factor=None):
         if size is not None :
             self.scale = __parameter_int_or_tuple__(size)
@@ -117,15 +149,26 @@ class NearestUpsampling(Module):
         return input.repeat_interleave(self.scale[0], dim=2).repeat_interleave(self.scale[1], dim=3)
     
     def backward(self, grad_wrt_output):
-        acc=torch.zeros(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale[0]),int(grad_wrt_output.size(3)/self.scale[1]))
+        acc=torch.zeros(1,grad_wrt_output.size(0),grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale[0]),int(grad_wrt_output.size(3)/self.scale[1]))
         
         for i in range(self.scale[0]):
             for j in range(self.scale[1]):
                 acc=torch.cat((acc,grad_wrt_output[:,:,i::self.scale[0],j::self.scale[1]].\
-                               view(1,-1,grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale[0]),int(grad_wrt_output.size(3)/self.scale[1]))),dim=0)
+                               view(1,grad_wrt_output.size(0),grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale[0]),int(grad_wrt_output.size(3)/self.scale[1]))),dim=0)
         
         
         return acc.sum(dim=0)
+
+class Upsampling(Module):
+    def __init__(self,in_channels, out_channels, kernel_size, dilation=1, padding=0, scale_factor=1 , stride=1):
+        self.conv=Conv2d(in_channels,out_channels,kernel_size, dilation, padding,stride)
+        self.nn=NNUpsampling(scale_factor)
+    def __call__(self, input) :
+        return self.forward(input)
+    def forward(self,input):
+        return self.conv(self.nn(input))
+    def backward(self,grad_wrt_output):
+        return self.nn.backward(self.conv.backward(grad_wrt_output))    
     
 class MSE(Module):
     def __init__(self,size_average=None, reduce=None, reduction='mean'):
@@ -217,7 +260,7 @@ class Sequential(Module):
             y = module.forward(y)
         return y
             
-    def backward(self, *grad_wrt_output):
+    def backward(self, grad_wrt_output):
         for module in self.modules[::-1] : #Go from last layer to the first
             grad_wrt_output = module.backward(grad_wrt_output)
     
@@ -244,7 +287,7 @@ class ReLU(Module):
         return result
     
     def backward(self, grad_wrt_output):
-        mask = torch.empty(self.last_input.size()).fill(0)
+        mask = torch.empty(self.last_input.size()).fill_(0)
         mask[self.last_output > 0] = 1
         grad_wrt_input = mask * grad_wrt_output # slide 10 of lecture 3.6
         return grad_wrt_input
