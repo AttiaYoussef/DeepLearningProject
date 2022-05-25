@@ -82,8 +82,13 @@ class Tests(unittest.TestCase):
     def _test_forward_dummy_input(self, project_number):
         Model = importlib.import_module(f"Miniproject_{project_number}.model").Model
         model = Model()
-        out = model.predict(torch.randn(1, 3, 512, 512))
+        out = model.predict(torch.rand(1, 3, 512, 512) * 255)
         self.assertEqual(out.shape, (1, 3, 512, 512))
+        self.assertGreaterEqual(out.min(), 0)
+        self.assertLessEqual(out.max(), 255)
+
+        if out.max() <= 1:
+            warn("The output of the predict function should be a Tensor in the range [0, 255]")
 
 
     def test_model_pnsr(self):
@@ -99,8 +104,6 @@ class Tests(unittest.TestCase):
 
         val_path = data_path / "val_data.pkl"
         val_input, val_target = torch.load(val_path)
-
-        val_input = val_input.float() / 255.0
         val_target = val_target.float() / 255.0
 
         mini_batch_size = 100
@@ -108,7 +111,7 @@ class Tests(unittest.TestCase):
         for b in tqdm(range(0, val_input.size(0), mini_batch_size)):
             output = model.predict(val_input.narrow(0, b, mini_batch_size))
             model_outputs.append(output.cpu())
-        model_outputs = torch.cat(model_outputs, dim=0)
+        model_outputs = torch.cat(model_outputs, dim=0) / 255.0
 
         output_psnr = self.compute_psnr(model_outputs, val_target)
         print(f"[PSNR {project_number}: {output_psnr:.2f} dB]")
@@ -123,28 +126,23 @@ class Tests(unittest.TestCase):
     def _test_train_model(self, project_number):
         Model = importlib.import_module(f"Miniproject_{project_number}.model").Model
         model = Model()
-        model.load_pretrained_model()
 
         train_path = data_path / "train_data.pkl"
         val_path = data_path / "val_data.pkl"
         train_input0, train_input1 = torch.load(train_path)
         val_input, val_target = torch.load(val_path)
-
-        train_input0 = train_input0.float() / 255.0
-        train_input1 = train_input1.float() / 255.0
-        val_input = val_input.float() / 255.0
         val_target = val_target.float() / 255.0
 
         output_psnr_before = self.compute_psnr(val_input, val_target)
-
-        model.train(train_input0, train_input1)
+        
+        model.train(train_input0, train_input1, num_epochs=1)
 
         mini_batch_size = 100
         model_outputs = []
         for b in tqdm(range(0, val_input.size(0), mini_batch_size)):
             output = model.predict(val_input.narrow(0, b, mini_batch_size))
             model_outputs.append(output.cpu())
-        model_outputs = torch.cat(model_outputs, dim=0)
+        model_outputs = torch.cat(model_outputs, dim=0) / 255.0
 
         output_psnr_after = self.compute_psnr(model_outputs, val_target)
         print(f"[PSNR {project_number}: {output_psnr_after:.2f} dB]")
@@ -160,17 +158,17 @@ class Tests(unittest.TestCase):
         with self.subTest("Testing convolution"):
             Conv2d = model_module.Conv2d
             conv = Conv2d(3, 3, 3)
-            self.assertTrue(torch.allclose(conv(x), F.conv2d(x, conv.weight, conv.bias)))
+            self.assertTrue(torch.allclose(conv.forward(x), F.conv2d(x, conv.weight, conv.bias)))
 
         with self.subTest("Testing sigmoid"):
             Sigmoid = model_module.Sigmoid
             sigmoid = Sigmoid()
-            self.assertTrue(torch.allclose(sigmoid(x), torch.sigmoid(x)))
+            self.assertTrue(torch.allclose(sigmoid.forward(x), torch.sigmoid(x)))
 
         with self.subTest("Testing sequential"):
             Sequential = model_module.Sequential
             seq = Sequential(conv, sigmoid)
-            self.assertTrue(torch.allclose(seq(x), F.conv2d(x, conv.weight, conv.bias).sigmoid()))
+            self.assertTrue(torch.allclose(seq.forward(x), F.conv2d(x, conv.weight, conv.bias).sigmoid()))
 
 def warn(msg):
     print(f"\33[33m!!! Warning: {msg}\33[39m")

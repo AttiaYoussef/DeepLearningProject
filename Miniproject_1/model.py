@@ -27,22 +27,28 @@ class Model():
         
     
     
-    def train(self, train_input,train_target) -> None:
+    def train(self, train_input,train_target, num_epochs = 7) -> None:
         # : train ̇input : tensor of size (N , C , H , W ) containing a noisy version of the images
         # : train ̇target : tensor of size (N , C , H , W ) containing another noisy version of the same images , which only differs from the input by their noise .
-        epochs = 7
+        torch.set_grad_enabled(True)
+        
+        normalized_input = train_input / 255.0
+        normalized_target = train_target / 255.0
+        
         N = train_input.size(0)
         batch_size = 32
-        for e in range(epochs):
+        for e in range(num_epochs):
             for index in range(0, N, batch_size):
                 self.optimizer.zero_grad()
-                train_data_minibatch = train_input[index:(index+batch_size)]
-                train_target_minibatch = train_target[index:(index+batch_size)]
+                train_data_minibatch = normalized_input[index:(index+batch_size)]
+                train_target_minibatch = normalized_target[index:(index+batch_size)]
+                for p in self.model.parameters():
+                    p.retain_grad()
                 self.loss(self.model(train_data_minibatch), train_target_minibatch).backward()
                 self.optimizer.step()
                 
     
     def predict(self, test_input) -> torch.Tensor:
         # : test ̇input : tensor of size ( N1 , C , H , W ) that has to be denoised by the trained or the loaded network .
-        return self.model(test_input)
+        return torch.clamp(self.model(test_input  / 255.0), min = 0, max = 1) * 255.0
     

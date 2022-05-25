@@ -6,6 +6,7 @@ Link: https://arxiv.org/abs/1803.04189
 
 import torch
 from torch import nn
+torch.set_grad_enabled(True)
 
 """
 Describes an "encoding block" in the autoencoder; it's composed of a 3x3 convolutional layer, followed by either

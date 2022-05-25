@@ -5,9 +5,6 @@ import math
 import random
 import pickle
 
-torch.set_grad_enabled(False)
-
-
 class Model():
     
     def __init__(self) -> None:
@@ -32,41 +29,39 @@ class Model():
         )
         
         self.optimizer = SGD(self.model.params(), lr = 0.15)
-        self.loss = MSELoss()
+        self.loss = MSE()
     
     
     def load_pretrained_model(self) -> None:
         ## This loads the parameters saved in bestmodel . pth into the model
-        self.model=pickle.load(open('bestmodel.pth','rb'))
-        
+        with open('Miniproject_2/bestmodel.pth','rb') as fs:
+            self.model=pickle.load(fs)
     
-    def train(self, train_input,train_target) -> None:
+    def train(self, train_input,train_target, num_epochs=15) -> None:
         # : train ̇input : tensor of size (N , C , H, W ) containing a noisy version of the images
         # : train ̇target : tensor of size (N , C , H , W ) containing another noisy version of the same images , which only differs from the input by their noise .
-        epochs = 15
+        torch.set_grad_enabled(False)
+        
         batch_size = 32
         
-        for i in range(epochs):
-            for b in range(0, len(train_input), batch_size):
+        normalized_input = train_input / 255.0
+        normalized_target = train_target / 255.0
+        
+        for i in range(num_epochs):
+            for b in range(0, len(normalized_input), batch_size):
                 self.optimizer.zero_grad()
-                data = train_input[b:b+batch_size]
-                target = train_target[b:b+batch_size]
+                data = normalized_input[b:b+batch_size]
+                target = normalized_target[b:b+batch_size]
                 output=self.loss(self.model(data),target)
                 self.model.backward(self.loss.backward())
                 self.optimizer.step()
                 
-           
-                
-        
-                
-    
     def predict(self, test_input) -> torch.Tensor:
         # : test ̇input : tensor of size ( N1 , C , H , W ) that has to be denoised by the trained or the loaded network .
-        return self.model(test_input)
+        return torch.clamp(self.model(test_input  / 255.0), min = 0, max = 1) * 255.0
 
     
-
-
+    
 def __parameter_int_or_tuple__(parameter):
     if type(parameter) is int:
         returned = (parameter,parameter)
@@ -327,3 +322,29 @@ class Sigmoid(Module):
     def params(self):
         return []
     
+noisy_imgs_1, noisy_imgs_2 = torch.load('../data/train_data.pkl') #pairs of images with different noises each time
+val_noisy_imgs, clean_imgs = torch.load('../data/val_data.pkl')
+val_noisy_imgs = val_noisy_imgs
+clean_imgs = clean_imgs
+train_input, train_target = ((noisy_imgs_1/255.0)), ((noisy_imgs_2/255.0))
+
+val_imgs_during_training = val_noisy_imgs[800:]
+clean_imgs_during_training = clean_imgs[800:]
+
+def psnr ( denoised , ground_truth ) :
+    # Peak Signal to Noise Ratio : denoised and ground_truth have range [0 , 1]
+    mse = torch . mean (( denoised - ground_truth ) ** 2)
+    return -10 * torch . log10 ( mse + 10** -8)
+
+def validation_check(model):
+    with torch.no_grad():
+        denoised = ((model(val_imgs_during_training/255)))
+        avg_psnr = 0
+        for i in range(200) :
+             avg_psnr += psnr(denoised[i], clean_imgs_during_training[i]/255)
+        return avg_psnr/200
+    
+model = Model()
+model.train(train_input, train_target, num_epochs=15)
+    
+pickle.dump(model,open('bestmodel.pth','wb'))
