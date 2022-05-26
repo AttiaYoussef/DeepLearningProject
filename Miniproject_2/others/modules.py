@@ -61,11 +61,11 @@ class Conv2d(Module):
         self.dbias += grad_wrt_bias #it's cumulative 
         
         def spicy_reshape(x):
-            return x.transpose(0,1).transpose(1,2).reshape(x.shape[1],x.shape[0]*x.shape[2])
+            return x.transpose(0,1).transpose(1,2).reshape(x.shape[1],x.shape[0]*x.shape[2]) # finding the correct shape for grad_wrt_output
         
         grad_reshaped = grad_wrt_output.transpose(0,1).transpose(1,2).transpose(2,3).reshape(self.out_channels, -1)
         dweights = grad_reshaped @ spicy_reshape(self.last_input).T
-        self.dweight += dweights.reshape(self.weight.shape) 
+        self.dweight += dweights.reshape(self.weight.shape) #puting the grad in the correct shape to facilitate optimizer.step
         
         correct_shape_grad = grad_wrt_output.view(self.last_output.size(0), self.last_output.size(1), -1)
         grad_wrt_input = (self.weight.view(self.weight.size(0), -1).T @ correct_shape_grad).view(self.last_input.size())
@@ -88,7 +88,8 @@ class NNUpsampling(Module):
     def forward(self,input):
         return input.repeat_interleave(self.scale[0], dim=2).repeat_interleave(self.scale[1], dim=3)
     
-    def backward(self, grad_wrt_output):
+    def backward(self, grad_wrt_output): #the idea is to basically create a tensor composed of the first elements of each scale*scale blocks append to acc
+        #create a tensor composed of the second elements of each scale*scale blocks append to acc etc... then summing acc along the dimention we appended everything to
         acc=torch.zeros(1,grad_wrt_output.size(0),grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale[0]),int(grad_wrt_output.size(3)/self.scale[1]))
         
         for i in range(self.scale[0]):
