@@ -4,7 +4,7 @@ from torch.nn.functional import fold, unfold
 import math
 import random
 
-def __parameter_int_or_tuple__(parameter):
+def __parameter_int_or_tuple__(parameter): #we coded this mainly because pytorch's layers can get a tuple or an int for some parameters so we wanted ours to behave the same
     if type(parameter) is int:
         returned = (parameter,parameter)
     else:
