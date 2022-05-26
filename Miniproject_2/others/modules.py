@@ -3,7 +3,6 @@ from torch import empty, cat, arange
 from torch.nn.functional import fold, unfold
 import math
 import random
-#torch.set_grad_enabled(False)
 
 def __parameter_int_or_tuple__(parameter):
     if type(parameter) is int:
@@ -32,8 +31,8 @@ class Conv2d(Module):
         self.dilation = __parameter_int_or_tuple__(dilation)
         
         bound = math.sqrt(groups/(in_channels * self.kernel[0] * self.kernel[1]))
-        self.weights = torch.empty(out_channels, in_channels, self.kernel[0], self.kernel[1]).uniform_(-bound, bound)
-        self.dweights = torch.empty(self.weights.size()).fill_(0)
+        self.weight = torch.empty(out_channels, in_channels, self.kernel[0], self.kernel[1]).uniform_(-bound, bound)
+        self.dweight = torch.empty(self.weight.size()).fill_(0)
         self.bias = torch.empty(out_channels).uniform_(-bound, bound)
         self.dbias = torch.empty(self.bias.size()).fill_(0)
         
@@ -44,47 +43,47 @@ class Conv2d(Module):
         self.h_out = 0
         self.w_out = 0
         
+    def __call__(self, a) :
+        return self.forward(a)
+        
     def forward(self, a): 
         self.last_input_size = a.size() # Input is of shape (N, C, H, W)
         n = a.size(0)
         unfold_a = unfold(a, kernel_size = self.kernel, stride = self.stride, padding = self.padding, dilation = self.dilation)
-        
         self.last_input = unfold_a.clone()
         self.h_out = h_out = math.floor(1 + (a.size(2) + 2 * self.padding[0] - self.dilation[0] * (self.kernel[0] - 1 ) - 1)/self.stride[0])
         self.w_out = w_out = math.floor(1 + (a.size(3) + 2 * self.padding[1] - self.dilation[1] * (self.kernel[1] - 1 ) - 1)/self.stride[1])
-        self.last_output = (self.weights.view(self.out_channels,-1) @ unfold_a + self.bias.view(1,-1,1)).view(n, self.out_channels, h_out, w_out)
+        self.last_output = (self.weight.view(self.out_channels,-1) @ unfold_a + self.bias.view(1,-1,1)).view(n, self.out_channels, h_out, w_out)
         return self.last_output # Output is of shape(N, D, H_out, W_out)
     
     def backward(self, grad_wrt_output): #we have dl/ds(l), assume shape (n, D, H_out, W_out). Lecture 3.6 as reference
-        correct_shape_grad = grad_wrt_output.view(self.last_output.size(0), self.last_output.size(1), -1)
         grad_wrt_bias = grad_wrt_output.sum(dim=[0,2,3])
         self.dbias += grad_wrt_bias #it's cumulative 
-        
         
         def spicy_reshape(x):
             return x.transpose(0,1).transpose(1,2).reshape(x.shape[1],x.shape[0]*x.shape[2])
         
+        grad_reshaped = grad_wrt_output.transpose(0,1).transpose(1,2).transpose(2,3).reshape(self.out_channels, -1)
+        dweights = grad_reshaped @ spicy_reshape(self.last_input).T
+        self.dweight += dweights.reshape(self.weight.shape) 
         
-        dout_reshaped = grad_wrt_output.transpose(0,1).transpose(1,2).transpose(2,3).reshape(self.out_channels, -1)
-        dW = dout_reshaped @ spicy_reshape(self.last_input).T
-        self.dweights += dW.reshape(self.weights.shape)
-        
-        #grad_wrt_weight = correct_shape_grad @ self.last_input.view(self.last_input.size(0), self.last_input.size(2), self.last_input.size(1))
-        #self.dweights += grad_wrt_weight.sum(dim = 0).view(self.weights.size()) #it's cumulative
-        
-        grad_wrt_input = (self.weights.view(self.weights.size(0), -1).T @ correct_shape_grad).view(self.last_input.size())
+        correct_shape_grad = grad_wrt_output.view(self.last_output.size(0), self.last_output.size(1), -1)
+        grad_wrt_input = (self.weight.view(self.weight.size(0), -1).T @ correct_shape_grad).view(self.last_input.size())
         grad_wrt_input = fold(grad_wrt_input, output_size = self.last_input_size[2:], kernel_size = self.kernel,dilation=self.dilation, padding=self.padding, stride=self.stride)
         return grad_wrt_input
     
     def params(self):
-        return [(self.weights, self.dweights), (self.bias, self.dbias)]
+        return [(self.weight, self.dweight), (self.bias, self.dbias)]
 
-class NearestUpsampling(Module):
+class NNUpsampling(Module):
     def __init__(self, size=None, scale_factor=None, mode='nearest', align_corners=None, recompute_scale_factor=None):
         if size is not None :
             self.scale = __parameter_int_or_tuple__(size)
         elif scale_factor is not None :
             self.scale = __parameter_int_or_tuple__(scale_factor)
+           
+    def __call__(self, a) :
+        return self.forward(a)
     
     def forward(self,input):
         return input.repeat_interleave(self.scale[0], dim=2).repeat_interleave(self.scale[1], dim=3)
@@ -99,12 +98,33 @@ class NearestUpsampling(Module):
         
         
         return acc.sum(dim=0)
+
+class Upsampling(Module):
+    def __init__(self,in_channels, out_channels, kernel_size, dilation=1, padding=0, scale_factor=1 , stride=1):
+        self.conv=Conv2d(in_channels,out_channels,kernel_size, dilation, padding,stride)
+        self.nn=NNUpsampling(scale_factor)
+        
+    def __call__(self, input) :
+        return self.forward(input)
+    
+    def forward(self,input):
+        return self.conv(self.nn(input))
+    
+    def backward(self,grad_wrt_output):
+        return self.nn.backward(self.conv.backward(grad_wrt_output))    
+    
+    def params(self):
+        return [(self.conv.weight, self.conv.dweight), (self.conv.bias, self.conv.dbias)]
     
 class MSE(Module):
     def __init__(self,size_average=None, reduce=None, reduction='mean'):
         self.last_input = None
         self.last_target = None
         self.reduction = reduction
+        
+    def __call__(self, input, target) :
+        return self.forward(input, target)
+       
     def forward(self, input, target):
         self.last_input = input
         self.last_target = target
@@ -176,6 +196,9 @@ class Sequential(Module):
     def __init__(self, *modules):
         super().__init__()
         self.modules = modules
+        
+    def __call__(self, x) :
+        return self.forward(x)
     
     def forward(self, x):
         y = torch.clone(x)
@@ -185,7 +208,6 @@ class Sequential(Module):
             
     def backward(self, grad_wrt_output):
         for module in self.modules[::-1] : #Go from last layer to the first
-            
             grad_wrt_output = module.backward(grad_wrt_output)
     
     def params(self):
@@ -199,6 +221,9 @@ class ReLU(Module):
         self.last_input = None
         self.last_output = None
         self.inplace = inplace
+        
+    def __call__(self, x) :
+        return self.forward(x)
         
     def forward(self, x):
         self.last_input = x
@@ -220,6 +245,9 @@ class Sigmoid(Module):
     def __init__(self):
         self.last_input = None
         self.last_output = None
+        
+    def __call__(self, x) :
+        return self.forward(x)
     
     def __calculate_sigmoid__(self, x):
         return 1/(1 + (-x).exp())
@@ -230,7 +258,7 @@ class Sigmoid(Module):
         return self.last_output
     
     def backward(self, grad_wrt_output):
-        grad_wrt_input = grad_wrt_output * (self.last_output * (1.0 - self.last_output)) # slide 10 of lecture 3.6
+        grad_wrt_input = grad_wrt_output * (self.last_output * (1 - self.last_output)) # slide 10 of lecture 3.6
         return grad_wrt_input
     
     def params(self):

@@ -23,7 +23,11 @@ class Model():
     
     def load_pretrained_model(self) -> None:
         ## This loads the parameters saved in bestmodel . pth into the model
-        self.model.load_state_dict(torch.load('Miniproject_1/bestmodel.pth', map_location=torch.device('cpu')))
+        if torch.cuda.is_available() :
+            device = torch.device("cuda:0")
+        else :
+            device = torch.device("cpu")
+        self.model.load_state_dict(torch.load('Miniproject_1/bestmodel.pth', map_location=device))
         
     
     

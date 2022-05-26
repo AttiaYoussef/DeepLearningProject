@@ -134,7 +134,7 @@ class Tests(unittest.TestCase):
         val_target = val_target.float() / 255.0
 
         output_psnr_before = self.compute_psnr(val_input, val_target)
-        
+
         model.train(train_input0, train_input1, num_epochs=1)
 
         mini_batch_size = 100
