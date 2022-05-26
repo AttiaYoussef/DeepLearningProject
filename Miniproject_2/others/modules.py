@@ -31,7 +31,7 @@ class Conv2d(Module):
         self.dilation = __parameter_int_or_tuple__(dilation)
         
         bound = math.sqrt(groups/(in_channels * self.kernel[0] * self.kernel[1]))
-        self.weight = torch.empty(out_channels, in_channels, self.kernel[0], self.kernel[1]).uniform_(-bound, bound) # weight initialization is based on pytorch's weight initialization method  
+        self.weight = torch.empty(out_channels, in_channels, self.kernel[0], self.kernel[1]).uniform_(-bound, bound) # weight initialization is based on pytorch's default weight initialization
         self.dweight = torch.empty(self.weight.size()).fill_(0)
         self.bias = torch.empty(out_channels).uniform_(-bound, bound)
         self.dbias = torch.empty(self.bias.size()).fill_(0)
@@ -89,7 +89,7 @@ class NNUpsampling(Module):
         return input.repeat_interleave(self.scale[0], dim=2).repeat_interleave(self.scale[1], dim=3) #inspired from np.repeat
     
     def backward(self, grad_wrt_output): #the idea is to basically create a tensor composed of the first elements of each scale*scale blocks append to acc
-        #create a tensor composed of the second elements of each scale*scale blocks append to acc etc... then summing acc along the dimention we appended everything to
+        #create a tensor composed of the second elements of each scale*scale blocks append to acc etc... then summing acc along the dimension we appended everything to
         acc=torch.zeros(1,grad_wrt_output.size(0),grad_wrt_output.size(1),int(grad_wrt_output.size(2)/self.scale[0]),int(grad_wrt_output.size(3)/self.scale[1]))
         
         for i in range(self.scale[0]):
