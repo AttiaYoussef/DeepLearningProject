@@ -31,7 +31,7 @@ class Conv2d(Module):
         self.dilation = __parameter_int_or_tuple__(dilation)
         
         bound = math.sqrt(groups/(in_channels * self.kernel[0] * self.kernel[1]))
-        self.weight = torch.empty(out_channels, in_channels, self.kernel[0], self.kernel[1]).uniform_(-bound, bound)
+        self.weight = torch.empty(out_channels, in_channels, self.kernel[0], self.kernel[1]).uniform_(-bound, bound) # weight initialization is based on pytorch's weight initialization method  
         self.dweight = torch.empty(self.weight.size()).fill_(0)
         self.bias = torch.empty(out_channels).uniform_(-bound, bound)
         self.dbias = torch.empty(self.bias.size()).fill_(0)
@@ -65,7 +65,7 @@ class Conv2d(Module):
         
         grad_reshaped = grad_wrt_output.transpose(0,1).transpose(1,2).transpose(2,3).reshape(self.out_channels, -1)
         dweights = grad_reshaped @ spicy_reshape(self.last_input).T
-        self.dweight += dweights.reshape(self.weight.shape) #puting the grad in the correct shape to facilitate optimizer.step
+        self.dweight += dweights.reshape(self.weight.shape) #putting the grad in the correct shape to facilitate optimizer.step
         
         correct_shape_grad = grad_wrt_output.view(self.last_output.size(0), self.last_output.size(1), -1)
         grad_wrt_input = (self.weight.view(self.weight.size(0), -1).T @ correct_shape_grad).view(self.last_input.size())
@@ -86,7 +86,7 @@ class NNUpsampling(Module):
         return self.forward(a)
     
     def forward(self,input):
-        return input.repeat_interleave(self.scale[0], dim=2).repeat_interleave(self.scale[1], dim=3)
+        return input.repeat_interleave(self.scale[0], dim=2).repeat_interleave(self.scale[1], dim=3) #inspired from np.repeat
     
     def backward(self, grad_wrt_output): #the idea is to basically create a tensor composed of the first elements of each scale*scale blocks append to acc
         #create a tensor composed of the second elements of each scale*scale blocks append to acc etc... then summing acc along the dimention we appended everything to
